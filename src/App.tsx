@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 
 /* ------------------------------------------------------------------ *
  * Helpers                                                             *
@@ -22,6 +22,56 @@ function Price({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' | 'lg
       <span className={`font-display font-medium gold-text ${sizes[size].eur}`}>{eur}</span>
       <span className={`text-ink-faint ${sizes[size].bgn} font-mono tracking-tight`}>/ {bgn}</span>
     </span>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Scroll-reveal wrapper (IntersectionObserver)                        *
+ * ------------------------------------------------------------------ */
+function Reveal({
+  children,
+  className = '',
+  delay = 0,
+  direction = 'up',
+  threshold = 0.15,
+}: {
+  children: React.ReactNode
+  className?: string
+  delay?: number
+  direction?: 'up' | 'fade' | 'left' | 'right' | 'scale'
+  threshold?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [revealed, setRevealed] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setRevealed(true)
+      return
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setRevealed(true)
+          obs.unobserve(el)
+        }
+      },
+      { threshold, rootMargin: '0px 0px -60px 0px' }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [threshold])
+
+  return (
+    <div
+      ref={ref}
+      className={`reveal reveal-${direction}${revealed ? ' revealed' : ''} ${className}`}
+      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -149,7 +199,7 @@ function Nav() {
             <a
               key={href}
               href={href}
-              className="text-sm font-medium text-ink-muted hover:text-ink transition-colors relative py-2"
+              className="nav-link text-sm font-medium text-ink-muted hover:text-ink transition-colors py-2"
             >
               {label}
             </a>
@@ -169,11 +219,16 @@ function Nav() {
             className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-full border border-line text-ink hover:bg-bg-elev transition"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              {open ? (
-                <><path d="M6 6 L18 18" /><path d="M18 6 L6 18" /></>
-              ) : (
-                <><path d="M4 8 H20" /><path d="M4 16 H20" /></>
-              )}
+              <path
+                className="hamburger-line"
+                d="M4 8 H20"
+                style={open ? { transform: 'rotate(45deg)' } : undefined}
+              />
+              <path
+                className="hamburger-line"
+                d="M4 16 H20"
+                style={open ? { transform: 'rotate(-45deg)' } : undefined}
+              />
             </svg>
           </button>
         </div>
@@ -211,7 +266,7 @@ function Nav() {
               key={href}
               href={href}
               onClick={() => setOpen(false)}
-              className="flex items-center justify-between py-4 border-b border-line/60 text-ink hover:text-gold transition-colors"
+              className="drawer-link flex items-center justify-between py-4 border-b border-line/60 text-ink hover:text-gold"
             >
               <span className="font-display text-2xl">{label}</span>
               <span className="font-mono text-[11px] text-ink-faint">0{i + 1}</span>
@@ -220,11 +275,11 @@ function Nav() {
           <a
             href="#reservation"
             onClick={() => setOpen(false)}
-            className="btn-primary rounded-full px-5 py-3 text-center text-sm font-semibold mt-8"
+            className="drawer-link btn-primary rounded-full px-5 py-3 text-center text-sm font-semibold mt-8"
           >
             Резервирай маса
           </a>
-          <div className="mt-10 text-xs text-ink-faint leading-relaxed">
+          <div className="drawer-link mt-10 text-xs text-ink-faint leading-relaxed">
             <p>ул. Княз Александър I 24</p>
             <p>Пловдив, България</p>
             <p className="mt-2 text-gold">+359 88 123 4567</p>
@@ -236,7 +291,7 @@ function Nav() {
 }
 
 /* ------------------------------------------------------------------ *
- * Hero                                                                *
+ * Hero — cinematic entrance                                           *
  * ------------------------------------------------------------------ */
 function Hero() {
   return (
@@ -245,7 +300,7 @@ function Hero() {
         src={IMG.hero}
         alt="Кинематографичен план на средиземноморско ястие с пресни подправки"
         eager
-        className="absolute inset-0 w-full h-full object-cover"
+        className="hero-image absolute inset-0 w-full h-full object-cover"
         label="hero"
       />
       <div className="absolute inset-0 hero-vignette" />
@@ -253,7 +308,7 @@ function Hero() {
 
       <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10 pt-[120px] pb-16 min-h-[100svh] flex flex-col">
         {/* Top badges */}
-        <div className="fade-up flex flex-wrap items-center gap-3 sm:gap-5 text-xs">
+        <div className="hero-enter flex flex-wrap items-center gap-3 sm:gap-5 text-xs" style={{ animationDelay: '0.2s' }}>
           <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-line bg-black/30 text-ink-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-olive animate-pulse" />
             Отворено сега · до 23:00
@@ -268,22 +323,22 @@ function Hero() {
 
         {/* Headline */}
         <div className="mt-auto pt-16 max-w-3xl">
-          <p className="fade-up font-mono text-[11px] sm:text-xs uppercase tracking-[0.42em] text-gold-100 mb-5">
+          <p className="hero-enter font-mono text-[11px] sm:text-xs uppercase tracking-[0.42em] text-gold-100 mb-5" style={{ animationDelay: '0.4s' }}>
             Est. 2019 · Mediterranean kitchen
           </p>
-          <h1 className="fade-up font-display text-[54px] leading-[0.95] sm:text-[72px] md:text-[96px] lg:text-[112px] tracking-tight">
+          <h1 className="hero-enter font-display text-[54px] leading-[0.95] sm:text-[72px] md:text-[96px] lg:text-[112px] tracking-tight" style={{ animationDelay: '0.55s' }}>
             <span className="block text-ink">Luna</span>
             <span className="block italic gold-text -mt-2">Verde</span>
           </h1>
-          <p className="fade-up font-display italic text-2xl sm:text-3xl md:text-4xl text-ink-muted mt-6 max-w-[640px] leading-snug">
+          <p className="hero-enter font-display italic text-2xl sm:text-3xl md:text-4xl text-ink-muted mt-6 max-w-[640px] leading-snug" style={{ animationDelay: '0.7s' }}>
             Средиземноморски вкус в&nbsp;сърцето на&nbsp;Пловдив.
           </p>
-          <p className="fade-up text-ink-muted mt-5 max-w-[560px] text-base sm:text-lg leading-relaxed">
+          <p className="hero-enter text-ink-muted mt-5 max-w-[560px] text-base sm:text-lg leading-relaxed" style={{ animationDelay: '0.85s' }}>
             Свежи сезонни продукти, бавно приготвени ястия и&nbsp;уютна атмосфера —
             създадени за&nbsp;вечери, в&nbsp;които всеки детайл има значение.
           </p>
 
-          <div className="fade-up mt-9 flex flex-wrap gap-3 sm:gap-4">
+          <div className="hero-enter mt-9 flex flex-wrap gap-3 sm:gap-4" style={{ animationDelay: '1.0s' }}>
             <a href="#menu" className="btn-primary rounded-full px-6 py-3.5 text-sm font-semibold tracking-wide">
               Разгледай менюто
             </a>
@@ -294,7 +349,7 @@ function Hero() {
         </div>
 
         {/* Bottom meta strip */}
-        <div className="fade-up mt-14 grid grid-cols-2 sm:grid-cols-4 gap-y-5 gap-x-6 border-t border-line pt-6">
+        <div className="hero-enter mt-14 grid grid-cols-2 sm:grid-cols-4 gap-y-5 gap-x-6 border-t border-line pt-6" style={{ animationDelay: '1.2s' }}>
           {([
             ['Работно време', 'Пон–Пет · 11:00 – 23:00'],
             ['Уикенди',       'Съб–Нед · 12:00 – 00:00'],
@@ -317,77 +372,89 @@ function Hero() {
  * ------------------------------------------------------------------ */
 function About() {
   return (
-    <section id="about" className="relative bg-soft-warm py-24 sm:py-32">
-      <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
+    <section id="about" className="relative bg-soft-warm py-24 sm:py-32 overflow-hidden">
+      {/* Ambient orbs */}
+      <div className="ambient-orb ambient-orb-gold w-[400px] h-[400px] -top-20 -right-32" />
+      <div className="ambient-orb ambient-orb-olive w-[300px] h-[300px] -bottom-16 -left-24" />
+
+      <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Images */}
           <div className="lg:col-span-5 order-2 lg:order-1">
-            <div className="grid grid-cols-5 gap-4">
-              <div className="col-span-3 aspect-[4/5] overflow-hidden rounded-2xl ring-soft">
-                <Img
-                  src={IMG.aboutA}
-                  alt="Уютен интериор на ресторант с топло осветление и елегантни маси"
-                  className="w-full h-full object-cover"
-                  label="interior"
-                />
-              </div>
-              <div className="col-span-2 flex flex-col gap-4 pt-10">
-                <div className="aspect-square overflow-hidden rounded-2xl ring-soft">
+            <Reveal direction="scale">
+              <div className="grid grid-cols-5 gap-4">
+                <div className="col-span-3 aspect-[4/5] overflow-hidden rounded-2xl ring-soft">
                   <Img
-                    src={IMG.galFoodDetail}
-                    alt="Близък план на средиземноморско ястие с пресни подправки"
+                    src={IMG.aboutA}
+                    alt="Уютен интериор на ресторант с топло осветление и елегантни маси"
                     className="w-full h-full object-cover"
-                    label="food detail"
+                    label="interior"
                   />
                 </div>
-                <div className="aspect-[3/4] overflow-hidden rounded-2xl ring-soft">
-                  <Img
-                    src={IMG.galTable}
-                    alt="Елегантно подредена маса с домашна лимонада"
-                    className="w-full h-full object-cover"
-                    label="table"
-                  />
+                <div className="col-span-2 flex flex-col gap-4 pt-10">
+                  <div className="aspect-square overflow-hidden rounded-2xl ring-soft">
+                    <Img
+                      src={IMG.galFoodDetail}
+                      alt="Близък план на средиземноморско ястие с пресни подправки"
+                      className="w-full h-full object-cover"
+                      label="food detail"
+                    />
+                  </div>
+                  <div className="aspect-[3/4] overflow-hidden rounded-2xl ring-soft">
+                    <Img
+                      src={IMG.galTable}
+                      alt="Елегантно подредена маса с домашна лимонада"
+                      className="w-full h-full object-cover"
+                      label="table"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
 
           {/* Text */}
           <div className="lg:col-span-7 order-1 lg:order-2">
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
-              01 — За нас
-            </p>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
-              Кухня, в&nbsp;която сезонът <em className="italic gold-text">диктува</em> менюто.
-            </h2>
-            <div className="gold-rule h-px w-32 my-8" />
-            <div className="space-y-5 text-ink-muted text-[17px] leading-[1.75] max-w-[58ch]">
-              <p>
-                Luna Verde е&nbsp;вдъхновена от&nbsp;спокойствието на&nbsp;средиземноморските
-                крайбрежия и&nbsp;щедростта на&nbsp;българската земя. Работим с&nbsp;местни
-                фермери и&nbsp;подбираме всеки продукт ръчно — от&nbsp;домати, узрели на&nbsp;слънце,
-                до прясна риба, която достига кухнята още същия ден.
+            <Reveal>
+              <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
+                01 — За нас
               </p>
-              <p>
-                Атмосферата е&nbsp;тиха и&nbsp;топла. Подходяща за&nbsp;вечери на&nbsp;двама,
-                семейни събирания, бизнес срещи и&nbsp;поводи, които искате да&nbsp;запомните.
-                Нашите гости получават спокойствие, време и&nbsp;грижа — изкуството да&nbsp;се&nbsp;храниш
-                без бързане.
-              </p>
-            </div>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
+                Кухня, в&nbsp;която сезонът <em className="italic gold-text">диктува</em> менюто.
+              </h2>
+              <div className="gold-rule-reveal h-px w-32 my-8" />
+            </Reveal>
+            <Reveal delay={150}>
+              <div className="space-y-5 text-ink-muted text-[17px] leading-[1.75] max-w-[58ch]">
+                <p>
+                  Luna Verde е&nbsp;вдъхновена от&nbsp;спокойствието на&nbsp;средиземноморските
+                  крайбрежия и&nbsp;щедростта на&nbsp;българската земя. Работим с&nbsp;местни
+                  фермери и&nbsp;подбираме всеки продукт ръчно — от&nbsp;домати, узрели на&nbsp;слънце,
+                  до прясна риба, която достига кухнята още същия ден.
+                </p>
+                <p>
+                  Атмосферата е&nbsp;тиха и&nbsp;топла. Подходяща за&nbsp;вечери на&nbsp;двама,
+                  семейни събирания, бизнес срещи и&nbsp;поводи, които искате да&nbsp;запомните.
+                  Нашите гости получават спокойствие, време и&nbsp;грижа — изкуството да&nbsp;се&nbsp;храниш
+                  без бързане.
+                </p>
+              </div>
+            </Reveal>
 
-            <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 gap-6 max-w-2xl">
-              {([
-                ['Сезонни продукти', 'от местни ферми'],
-                ['Ръчна селекция',   'от шеф готвач'],
-                ['Уютна атмосфера',  'за всеки повод'],
-              ] as const).map(([k, v]) => (
-                <div key={k} className="border-t border-line pt-4">
-                  <div className="font-display text-2xl text-ink leading-tight">{k}</div>
-                  <div className="text-sm text-ink-faint mt-1">{v}</div>
-                </div>
-              ))}
-            </div>
+            <Reveal delay={250}>
+              <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 gap-6 max-w-2xl">
+                {([
+                  ['Сезонни продукти', 'от местни ферми'],
+                  ['Ръчна селекция',   'от шеф готвач'],
+                  ['Уютна атмосфера',  'за всеки повод'],
+                ] as const).map(([k, v]) => (
+                  <div key={k} className="border-t border-line pt-4">
+                    <div className="font-display text-2xl text-ink leading-tight">{k}</div>
+                    <div className="text-sm text-ink-faint mt-1">{v}</div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </div>
       </div>
@@ -409,54 +476,62 @@ const SIGNATURE = [
 
 function Signature() {
   return (
-    <section className="relative py-24 sm:py-32 bg-bg-base">
-      <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
+    <section className="relative py-24 sm:py-32 bg-bg-base overflow-hidden">
+      {/* Ambient orb */}
+      <div className="ambient-orb ambient-orb-gold w-[350px] h-[350px] top-1/4 -left-28" />
+
+      <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-14">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
-              02 — Подбрани ястия
+          <Reveal>
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
+                02 — Подбрани ястия
+              </p>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink max-w-2xl">
+                Любими ястия от&nbsp;<em className="italic gold-text">шеф готвача</em>.
+              </h2>
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <p className="text-ink-muted max-w-md text-[15px] leading-relaxed">
+              Избор от най-обичаните вкусове на&nbsp;Luna Verde — приготвени с&nbsp;продукти,
+              подбрани за&nbsp;деня, и&nbsp;сервирани с&nbsp;грижа за&nbsp;всеки детайл.
             </p>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink max-w-2xl">
-              Любими ястия от&nbsp;<em className="italic gold-text">шеф готвача</em>.
-            </h2>
-          </div>
-          <p className="text-ink-muted max-w-md text-[15px] leading-relaxed">
-            Избор от най-обичаните вкусове на&nbsp;Luna Verde — приготвени с&nbsp;продукти,
-            подбрани за&nbsp;деня, и&nbsp;сервирани с&nbsp;грижа за&nbsp;всеки детайл.
-          </p>
+          </Reveal>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {SIGNATURE.map((d, i) => (
-            <article
-              key={d.name}
-              className="group card-warm rounded-2xl overflow-hidden flex flex-col shadow-card transition-transform duration-500 hover:-translate-y-1"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <Img
-                  src={d.img}
-                  alt={d.alt}
-                  className="img-zoom w-full h-full object-cover"
-                  label={d.name}
-                />
-                <div className="absolute top-3 left-3">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] bg-bg-base/80 backdrop-blur border border-line text-gold-50">
-                    <span className="w-1 h-1 rounded-full bg-gold" />
-                    {d.badge}
-                  </span>
+            <Reveal key={d.name} delay={i * 100} className="flex">
+              <article
+                className="group card-warm card-lift rounded-2xl overflow-hidden flex flex-col shadow-card flex-1"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <Img
+                    src={d.img}
+                    alt={d.alt}
+                    className="img-zoom w-full h-full object-cover"
+                    label={d.name}
+                  />
+                  <div className="absolute top-3 left-3">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] bg-bg-base/80 backdrop-blur border border-line text-gold-50">
+                      <span className="w-1 h-1 rounded-full bg-gold" />
+                      {d.badge}
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg-card to-transparent pointer-events-none" />
                 </div>
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg-card to-transparent pointer-events-none" />
-              </div>
 
-              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
-                <h3 className="font-display text-2xl leading-tight text-ink">{d.name}</h3>
-                <p className="text-sm text-ink-muted leading-relaxed flex-1">{d.desc}</p>
-                <div className="flex items-end justify-between pt-3 border-t border-line">
-                  <Price value={d.price} size="md" />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-faint">0{i + 1}</span>
+                <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                  <h3 className="font-display text-2xl leading-tight text-ink">{d.name}</h3>
+                  <p className="text-sm text-ink-muted leading-relaxed flex-1">{d.desc}</p>
+                  <div className="flex items-end justify-between pt-3 border-t border-line">
+                    <Price value={d.price} size="md" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-faint">0{i + 1}</span>
+                  </div>
                 </div>
-              </div>
-            </article>
+              </article>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -523,46 +598,50 @@ function FullMenu() {
   return (
     <section id="menu" className="relative py-24 sm:py-32 bg-soft-warm">
       <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
-        <div className="text-center mb-12">
-          <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
-            03 — Меню
-          </p>
-          <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
-            Цялото <em className="italic gold-text">меню</em> на&nbsp;Luna&nbsp;Verde
-          </h2>
-          <p className="ornament inline-block mt-6 font-display italic text-ink-muted text-lg">à la carte</p>
-        </div>
+        <Reveal>
+          <div className="text-center mb-12">
+            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">
+              03 — Меню
+            </p>
+            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
+              Цялото <em className="italic gold-text">меню</em> на&nbsp;Luna&nbsp;Verde
+            </h2>
+            <p className="ornament inline-block mt-6 font-display italic text-ink-muted text-lg">à la carte</p>
+          </div>
+        </Reveal>
 
         {/* Tabs */}
-        <div
-          role="tablist"
-          aria-label="Категории на менюто"
-          className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 p-1.5 rounded-full border border-line bg-bg-card/60 backdrop-blur max-w-3xl mx-auto"
-        >
-          {keys.map(k => (
-            <button
-              key={k}
-              role="tab"
-              aria-selected={k === active}
-              data-active={k === active}
-              onClick={() => select(k)}
-              className="tab relative px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium transition-colors"
-            >
-              <span className="relative z-10">{MENU[k].label}</span>
-              <span
-                className="absolute inset-0 rounded-full transition-all duration-500"
-                style={{
-                  background: k === active
-                    ? 'linear-gradient(180deg, rgba(201,169,97,0.16), rgba(201,169,97,0.06))'
-                    : 'transparent',
-                  boxShadow: k === active
-                    ? 'inset 0 0 0 1px rgba(201,169,97,0.45)'
-                    : 'none',
-                }}
-              />
-            </button>
-          ))}
-        </div>
+        <Reveal delay={100}>
+          <div
+            role="tablist"
+            aria-label="Категории на менюто"
+            className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 p-1.5 rounded-full border border-line bg-bg-card/60 backdrop-blur max-w-3xl mx-auto"
+          >
+            {keys.map(k => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={k === active}
+                data-active={k === active}
+                onClick={() => select(k)}
+                className="tab relative px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium transition-colors"
+              >
+                <span className="relative z-10">{MENU[k].label}</span>
+                <span
+                  className="absolute inset-0 rounded-full transition-all duration-500"
+                  style={{
+                    background: k === active
+                      ? 'linear-gradient(180deg, rgba(201,169,97,0.16), rgba(201,169,97,0.06))'
+                      : 'transparent',
+                    boxShadow: k === active
+                      ? 'inset 0 0 0 1px rgba(201,169,97,0.45)'
+                      : 'none',
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        </Reveal>
 
         {/* Menu panel */}
         <div className="mt-14 max-w-3xl mx-auto">
@@ -619,39 +698,47 @@ const GALLERY_TILES = [
 
 function Gallery() {
   return (
-    <section id="gallery" className="relative py-24 sm:py-32 bg-bg-base">
-      <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
+    <section id="gallery" className="relative py-24 sm:py-32 bg-bg-base overflow-hidden">
+      {/* Ambient orb */}
+      <div className="ambient-orb ambient-orb-olive w-[400px] h-[400px] top-1/3 -right-24" />
+
+      <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">04 — Атмосфера</p>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink max-w-2xl">
-              Усещането <em className="italic gold-text">на&nbsp;вечерта</em>.
-            </h2>
-          </div>
-          <p className="text-ink-muted max-w-md text-[15px] leading-relaxed">
-            Топло осветление, тиха музика, тераса с&nbsp;изглед към&nbsp;центъра на&nbsp;Пловдив.
-            Място, в&nbsp;което вечерята се&nbsp;превръща в&nbsp;спомен.
-          </p>
+          <Reveal>
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">04 — Атмосфера</p>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink max-w-2xl">
+                Усещането <em className="italic gold-text">на&nbsp;вечерта</em>.
+              </h2>
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <p className="text-ink-muted max-w-md text-[15px] leading-relaxed">
+              Топло осветление, тиха музика, тераса с&nbsp;изглед към&nbsp;центъра на&nbsp;Пловдив.
+              Място, в&nbsp;което вечерята се&nbsp;превръща в&nbsp;спомен.
+            </p>
+          </Reveal>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-[180px] sm:auto-rows-[220px] lg:auto-rows-[240px] gap-3 sm:gap-4">
-          {GALLERY_TILES.map(t => (
-            <figure
-              key={t.label}
-              className={`group relative overflow-hidden rounded-2xl ring-soft ${t.area}`}
-            >
-              <Img
-                src={t.src}
-                alt={t.alt}
-                className="img-zoom w-full h-full object-cover"
-                label={t.label}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80 group-hover:opacity-95 transition-opacity" />
-              <figcaption className="absolute left-4 bottom-4 right-4 flex items-center justify-between">
-                <span className="font-display text-xl text-ink">{t.label}</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold-100">Luna Verde</span>
-              </figcaption>
-            </figure>
+          {GALLERY_TILES.map((t, i) => (
+            <Reveal key={t.label} delay={i * 80} direction="scale" className={t.area}>
+              <figure
+                className="group relative overflow-hidden rounded-2xl ring-soft h-full"
+              >
+                <Img
+                  src={t.src}
+                  alt={t.alt}
+                  className="img-zoom w-full h-full object-cover"
+                  label={t.label}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80 group-hover:opacity-95 transition-opacity" />
+                <figcaption className="absolute left-4 bottom-4 right-4 flex items-center justify-between">
+                  <span className="font-display text-xl text-ink">{t.label}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold-100">Luna Verde</span>
+                </figcaption>
+              </figure>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -686,102 +773,112 @@ function Reservation() {
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-16">
           {/* Left info */}
           <div className="lg:col-span-5 lg:pt-6">
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">05 — Резервация</p>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
-              Запазете <em className="italic gold-text">маса</em> за&nbsp;вечерта.
-            </h2>
-            <div className="gold-rule h-px w-32 my-8" />
-            <p className="text-ink-muted text-[15px] leading-relaxed max-w-md">
-              Изберете удобен ден и&nbsp;час, а&nbsp;ние ще&nbsp;се&nbsp;погрижим за&nbsp;всичко
-              останало. Препоръчваме резервация в&nbsp;края на&nbsp;седмицата.
-            </p>
+            <Reveal>
+              <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">05 — Резервация</p>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
+                Запазете <em className="italic gold-text">маса</em> за&nbsp;вечерта.
+              </h2>
+              <div className="gold-rule-reveal h-px w-32 my-8" />
+            </Reveal>
+            <Reveal delay={100}>
+              <p className="text-ink-muted text-[15px] leading-relaxed max-w-md">
+                Изберете удобен ден и&nbsp;час, а&nbsp;ние ще&nbsp;се&nbsp;погрижим за&nbsp;всичко
+                останало. Препоръчваме резервация в&nbsp;края на&nbsp;седмицата.
+              </p>
+            </Reveal>
 
-            <ul className="mt-10 space-y-5">
-              {([
-                ['Уютен зал',        'до 80 места'],
-                ['Тераса',           'сезонно, до 32 места'],
-                ['Частни събития',   'по запитване'],
-              ] as const).map(([k, v]) => (
-                <li key={k} className="flex items-baseline justify-between gap-6 border-b border-line pb-4">
-                  <span className="font-display text-xl text-ink">{k}</span>
-                  <span className="text-sm text-ink-faint italic">{v}</span>
-                </li>
-              ))}
-            </ul>
+            <Reveal delay={200}>
+              <ul className="mt-10 space-y-5">
+                {([
+                  ['Уютен зал',        'до 80 места'],
+                  ['Тераса',           'сезонно, до 32 места'],
+                  ['Частни събития',   'по запитване'],
+                ] as const).map(([k, v]) => (
+                  <li key={k} className="flex items-baseline justify-between gap-6 border-b border-line pb-4">
+                    <span className="font-display text-xl text-ink">{k}</span>
+                    <span className="text-sm text-ink-faint italic">{v}</span>
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
 
-            <p className="mt-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-line text-[11px] font-mono uppercase tracking-[0.25em] text-ink-faint">
-              <span className="w-1 h-1 rounded-full bg-olive" />
-              Демо форма · не изпраща данни
-            </p>
+            <Reveal delay={250}>
+              <p className="mt-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-line text-[11px] font-mono uppercase tracking-[0.25em] text-ink-faint">
+                <span className="w-1 h-1 rounded-full bg-olive" />
+                Демо форма · не изпраща данни
+              </p>
+            </Reveal>
           </div>
 
           {/* Form */}
           <div className="lg:col-span-7">
-            <form
-              onSubmit={submit}
-              className="card-warm rounded-3xl p-6 sm:p-9 shadow-card"
-              aria-label="Форма за резервация"
-            >
-              <div className="grid sm:grid-cols-2 gap-5">
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="r-name">Име *</label>
-                  <input id="r-name" required className="field" value={form.name} onChange={update('name')} placeholder="Вашето име" />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="r-phone">Телефон *</label>
-                  <input id="r-phone" required type="tel" className="field" value={form.phone} onChange={update('phone')} placeholder="+359 ..." />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="r-date">Дата *</label>
-                  <input id="r-date" required type="date" min={today} className="field" value={form.date} onChange={update('date')} />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="r-time">Час *</label>
-                  <select id="r-time" required className="field" value={form.time} onChange={update('time')}>
-                    {times.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label">Брой гости *</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([1, 2, 3, 4, 5, 6, '7+'] as const).map(n => (
-                      <button
-                        type="button"
-                        key={n}
-                        data-active={String(form.guests) === String(n)}
-                        onClick={() => setForm(f => ({ ...f, guests: n }))}
-                        className="guest-chip rounded-full px-3.5 py-2 text-sm font-medium min-w-[44px]"
-                        aria-pressed={String(form.guests) === String(n)}
-                      >
-                        {n}
-                      </button>
-                    ))}
+            <Reveal delay={150} direction="scale">
+              <form
+                onSubmit={submit}
+                className="card-warm rounded-3xl p-6 sm:p-9 shadow-card"
+                aria-label="Форма за резервация"
+              >
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <label className="field-label" htmlFor="r-name">Име *</label>
+                    <input id="r-name" required className="field" value={form.name} onChange={update('name')} placeholder="Вашето име" />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="r-phone">Телефон *</label>
+                    <input id="r-phone" required type="tel" className="field" value={form.phone} onChange={update('phone')} placeholder="+359 ..." />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="r-date">Дата *</label>
+                    <input id="r-date" required type="date" min={today} className="field" value={form.date} onChange={update('date')} />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="r-time">Час *</label>
+                    <select id="r-time" required className="field" value={form.time} onChange={update('time')}>
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Брой гости *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {([1, 2, 3, 4, 5, 6, '7+'] as const).map(n => (
+                        <button
+                          type="button"
+                          key={n}
+                          data-active={String(form.guests) === String(n)}
+                          onClick={() => setForm(f => ({ ...f, guests: n }))}
+                          className="guest-chip rounded-full px-3.5 py-2 text-sm font-medium min-w-[44px]"
+                          aria-pressed={String(form.guests) === String(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="field-label" htmlFor="r-msg">Съобщение</label>
+                    <textarea id="r-msg" rows={3} className="field resize-none" value={form.message} onChange={update('message')} placeholder="Алергии, специален повод, предпочитание за маса..." />
                   </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="r-msg">Съобщение</label>
-                  <textarea id="r-msg" rows={3} className="field resize-none" value={form.message} onChange={update('message')} placeholder="Алергии, специален повод, предпочитание за маса..." />
-                </div>
-              </div>
 
-              <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
-                <p className="text-xs text-ink-faint">
-                  Полетата с&nbsp;<span className="text-gold">*</span> са&nbsp;задължителни.
-                </p>
-                <button
-                  type="submit"
-                  className="btn-primary rounded-full px-8 py-3.5 text-sm font-semibold tracking-wide w-full sm:w-auto"
-                >
-                  Изпрати резервация
-                </button>
-              </div>
-
-              {status === 'sent' && (
-                <div className="mt-5 p-4 rounded-xl border border-olive/40 bg-olive/10 text-sm text-ink fade-up">
-                  Благодарим! Вашата резервация е&nbsp;получена (демо). Ще&nbsp;се&nbsp;свържем с&nbsp;Вас за&nbsp;потвърждение.
+                <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
+                  <p className="text-xs text-ink-faint">
+                    Полетата с&nbsp;<span className="text-gold">*</span> са&nbsp;задължителни.
+                  </p>
+                  <button
+                    type="submit"
+                    className="btn-primary rounded-full px-8 py-3.5 text-sm font-semibold tracking-wide w-full sm:w-auto"
+                  >
+                    Изпрати резервация
+                  </button>
                 </div>
-              )}
-            </form>
+
+                {status === 'sent' && (
+                  <div className="mt-5 p-4 rounded-xl border border-olive/40 bg-olive/10 text-sm text-ink fade-up">
+                    Благодарим! Вашата резервация е&nbsp;получена (демо). Ще&nbsp;се&nbsp;свържем с&nbsp;Вас за&nbsp;потвърждение.
+                  </div>
+                )}
+              </form>
+            </Reveal>
           </div>
         </div>
       </div>
@@ -819,36 +916,43 @@ function Stars({ n }: { n: number }) {
 
 function Reviews() {
   return (
-    <section className="relative py-24 sm:py-32 bg-bg-base">
-      <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
-        <div className="text-center mb-14 max-w-2xl mx-auto">
-          <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">06 — Отзиви</p>
-          <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
-            Думи на&nbsp;<em className="italic gold-text">нашите гости</em>.
-          </h2>
-          <div className="mt-6 inline-flex items-center gap-3 text-ink-muted text-sm">
-            <Stars n={5} /> <span>4.9 / 5 средна оценка · 312 отзива</span>
+    <section className="relative py-24 sm:py-32 bg-bg-base overflow-hidden">
+      {/* Ambient orb */}
+      <div className="ambient-orb ambient-orb-olive w-[400px] h-[400px] -top-20 -right-24" />
+
+      <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
+        <Reveal>
+          <div className="text-center mb-14 max-w-2xl mx-auto">
+            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">06 — Отзиви</p>
+            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
+              Думи на&nbsp;<em className="italic gold-text">нашите гости</em>.
+            </h2>
+            <div className="mt-6 inline-flex items-center gap-3 text-ink-muted text-sm">
+              <Stars n={5} /> <span>4.9 / 5 средна оценка · 312 отзива</span>
+            </div>
           </div>
-        </div>
+        </Reveal>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {REVIEWS.map(r => (
-            <article key={r.name} className="card-warm rounded-2xl p-7 shadow-card flex flex-col">
-              <div className="flex items-center justify-between">
-                <Stars n={r.rating} />
-                <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink-faint">{r.occasion}</span>
-              </div>
-              <p
-                className="font-display italic text-xl leading-[1.5] text-ink mt-5 flex-1"
-                dangerouslySetInnerHTML={{ __html: `&ldquo;${r.text}&rdquo;` }}
-              />
-              <div className="flex items-center gap-3 mt-6 pt-5 border-t border-line">
-                <span className="w-10 h-10 rounded-full bg-gradient-to-br from-gold-100 to-gold-700 flex items-center justify-center text-bg-base font-display text-lg">
-                  {r.name[0]}
-                </span>
-                <span className="text-sm text-ink">{r.name}</span>
-              </div>
-            </article>
+          {REVIEWS.map((r, i) => (
+            <Reveal key={r.name} delay={i * 120} className="flex">
+              <article className="card-warm card-lift rounded-2xl p-7 shadow-card flex flex-col flex-1">
+                <div className="flex items-center justify-between">
+                  <Stars n={r.rating} />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink-faint">{r.occasion}</span>
+                </div>
+                <p
+                  className="font-display italic text-xl leading-[1.5] text-ink mt-5 flex-1"
+                  dangerouslySetInnerHTML={{ __html: `&ldquo;${r.text}&rdquo;` }}
+                />
+                <div className="flex items-center gap-3 mt-6 pt-5 border-t border-line">
+                  <span className="w-10 h-10 rounded-full bg-gradient-to-br from-gold-100 to-gold-700 flex items-center justify-center text-bg-base font-display text-lg">
+                    {r.name[0]}
+                  </span>
+                  <span className="text-sm text-ink">{r.name}</span>
+                </div>
+              </article>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -866,79 +970,90 @@ function Contact() {
     '&z=16&output=embed'
 
   return (
-    <section id="contact" className="relative py-24 sm:py-32 bg-soft-warm">
-      <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
+    <section id="contact" className="relative py-24 sm:py-32 bg-soft-warm overflow-hidden">
+      {/* Ambient orb */}
+      <div className="ambient-orb ambient-orb-gold w-[350px] h-[350px] bottom-0 -left-20" />
+
+      <div className="relative z-content max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10">
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-12">
           {/* Info */}
           <div className="lg:col-span-5">
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">07 — Контакти</p>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
-              Намерете <em className="italic gold-text">ни</em>.
-            </h2>
-            <div className="gold-rule h-px w-32 my-8" />
+            <Reveal>
+              <p className="font-mono text-xs uppercase tracking-[0.4em] text-gold mb-5">07 — Контакти</p>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-[64px] leading-[1.02] text-ink">
+                Намерете <em className="italic gold-text">ни</em>.
+              </h2>
+              <div className="gold-rule-reveal h-px w-32 my-8" />
+            </Reveal>
 
-            <dl className="space-y-7">
-              <div>
-                <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Адрес</dt>
-                <dd className="font-display text-2xl text-ink leading-snug">ул. Княз Александър I 24<br />Пловдив, България</dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Телефон</dt>
-                <dd className="text-lg text-ink"><a href="tel:+359881234567" className="hover:text-gold transition">+359 88 123 4567</a></dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Имейл</dt>
-                <dd className="text-lg text-ink"><a href="mailto:reservations@lunaverde.bg" className="hover:text-gold transition">reservations@lunaverde.bg</a></dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Работно време</dt>
-                <dd className="space-y-1 text-ink">
-                  <div className="flex justify-between max-w-xs"><span>Понеделник – Петък</span><span className="text-ink-muted">11:00 – 23:00</span></div>
-                  <div className="flex justify-between max-w-xs"><span>Събота – Неделя</span><span className="text-ink-muted">12:00 – 00:00</span></div>
-                </dd>
-              </div>
-            </dl>
+            <Reveal delay={100}>
+              <dl className="space-y-7">
+                <div>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Адрес</dt>
+                  <dd className="font-display text-2xl text-ink leading-snug">ул. Княз Александър I 24<br />Пловдив, България</dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Телефон</dt>
+                  <dd className="text-lg text-ink"><a href="tel:+359881234567" className="hover:text-gold transition">+359 88 123 4567</a></dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Имейл</dt>
+                  <dd className="text-lg text-ink"><a href="mailto:reservations@lunaverde.bg" className="hover:text-gold transition">reservations@lunaverde.bg</a></dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-2">Работно време</dt>
+                  <dd className="space-y-1 text-ink">
+                    <div className="flex justify-between max-w-xs"><span>Понеделник – Петък</span><span className="text-ink-muted">11:00 – 23:00</span></div>
+                    <div className="flex justify-between max-w-xs"><span>Събота – Неделя</span><span className="text-ink-muted">12:00 – 00:00</span></div>
+                  </dd>
+                </div>
+              </dl>
+            </Reveal>
 
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('ул. Княз Александър I 24, Пловдив')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-ghost inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium mt-10"
-            >
-              Отвори в Google Maps
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                <path d="M7 17 L17 7" /><path d="M9 7 H17 V15" />
-              </svg>
-            </a>
+            <Reveal delay={200}>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('ул. Княз Александър I 24, Пловдив')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-ghost inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium mt-10"
+              >
+                Отвори в Google Maps
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M7 17 L17 7" /><path d="M9 7 H17 V15" />
+                </svg>
+              </a>
+            </Reveal>
           </div>
 
           {/* Map */}
           <div className="lg:col-span-7">
-            <div className="card-warm rounded-3xl overflow-hidden shadow-card">
-              <div className="relative aspect-[4/3] sm:aspect-[16/11] bg-bg-elev">
-                <iframe
-                  title="Карта · Luna Verde, ул. Княз Александър I 24, Пловдив"
-                  src={mapSrc}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: 0, filter: 'saturate(0.7) brightness(0.85)' }}
-                  allowFullScreen
-                />
-                <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-line rounded-3xl" />
-              </div>
-              <div className="px-6 py-5 flex items-center justify-between border-t border-line">
-                <div>
-                  <div className="font-display text-xl text-ink">Luna Verde · Пловдив</div>
-                  <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint mt-1">
-                    42.1463° N · 24.7475° E
-                  </div>
+            <Reveal delay={150} direction="scale">
+              <div className="card-warm card-lift rounded-3xl overflow-hidden shadow-card">
+                <div className="relative aspect-[4/3] sm:aspect-[16/11] bg-bg-elev">
+                  <iframe
+                    title="Карта · Luna Verde, ул. Княз Александър I 24, Пловдив"
+                    src={mapSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="absolute inset-0 w-full h-full"
+                    style={{ border: 0, filter: 'saturate(0.7) brightness(0.85)' }}
+                    allowFullScreen
+                  />
+                  <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-line rounded-3xl" />
                 </div>
-                <span className="hidden sm:inline-flex items-center gap-2 text-xs text-ink-muted">
-                  <span className="w-1.5 h-1.5 rounded-full bg-olive animate-pulse" /> отворено сега
-                </span>
+                <div className="px-6 py-5 flex items-center justify-between border-t border-line">
+                  <div>
+                    <div className="font-display text-xl text-ink">Luna Verde · Пловдив</div>
+                    <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint mt-1">
+                      42.1463° N · 24.7475° E
+                    </div>
+                  </div>
+                  <span className="hidden sm:inline-flex items-center gap-2 text-xs text-ink-muted">
+                    <span className="w-1.5 h-1.5 rounded-full bg-olive animate-pulse" /> отворено сега
+                  </span>
+                </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
       </div>
@@ -953,49 +1068,53 @@ function Footer() {
   return (
     <footer className="relative bg-bg-base border-t border-line">
       <div className="max-w-[1240px] mx-auto px-5 sm:px-7 lg:px-10 py-16">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-12 gap-10">
-          <div className="lg:col-span-5">
-            <Logo />
-            <p className="text-ink-muted text-[15px] mt-6 max-w-sm leading-relaxed">
-              Средиземноморска кухня в&nbsp;сърцето на&nbsp;Пловдив. Свежи продукти,
-              елегантна атмосфера и&nbsp;грижа за&nbsp;всеки детайл.
+        <Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-5">
+              <Logo />
+              <p className="text-ink-muted text-[15px] mt-6 max-w-sm leading-relaxed">
+                Средиземноморска кухня в&nbsp;сърцето на&nbsp;Пловдив. Свежи продукти,
+                елегантна атмосфера и&nbsp;грижа за&nbsp;всеки детайл.
+              </p>
+            </div>
+
+            <div className="lg:col-span-3">
+              <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Навигация</div>
+              <ul className="space-y-3 text-ink">
+                {NAV_LINKS.map(([l, h]) => (
+                  <li key={h}><a href={h} className="hover:text-gold transition">{l}</a></li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="lg:col-span-2">
+              <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Социални</div>
+              <ul className="space-y-3 text-ink">
+                <li><a href="#" className="hover:text-gold transition">Facebook</a></li>
+                <li><a href="#" className="hover:text-gold transition">Instagram</a></li>
+                <li><a href="#" className="hover:text-gold transition">TikTok</a></li>
+              </ul>
+            </div>
+
+            <div className="lg:col-span-2">
+              <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Контакт</div>
+              <ul className="space-y-3 text-ink-muted text-sm">
+                <li className="text-ink">+359 88 123 4567</li>
+                <li>reservations@<br />lunaverde.bg</li>
+                <li>ул. Княз Александър I 24, Пловдив</li>
+              </ul>
+            </div>
+          </div>
+        </Reveal>
+
+        <Reveal delay={100}>
+          <div className="mt-14 pt-8 border-t border-line flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs text-ink-faint">
+            <p>© 2026 Luna Verde. Всички права запазени.</p>
+            <p className="font-mono tracking-[0.18em]">
+              Демо уебсайт, създаден от&nbsp;<span className="text-ink-muted">MaxStats IT Solutions</span>.
             </p>
           </div>
-
-          <div className="lg:col-span-3">
-            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Навигация</div>
-            <ul className="space-y-3 text-ink">
-              {NAV_LINKS.map(([l, h]) => (
-                <li key={h}><a href={h} className="hover:text-gold transition">{l}</a></li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="lg:col-span-2">
-            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Социални</div>
-            <ul className="space-y-3 text-ink">
-              <li><a href="#" className="hover:text-gold transition">Facebook</a></li>
-              <li><a href="#" className="hover:text-gold transition">Instagram</a></li>
-              <li><a href="#" className="hover:text-gold transition">TikTok</a></li>
-            </ul>
-          </div>
-
-          <div className="lg:col-span-2">
-            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint mb-5">Контакт</div>
-            <ul className="space-y-3 text-ink-muted text-sm">
-              <li className="text-ink">+359 88 123 4567</li>
-              <li>reservations@<br />lunaverde.bg</li>
-              <li>ул. Княз Александър I 24, Пловдив</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-14 pt-8 border-t border-line flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs text-ink-faint">
-          <p>© 2026 Luna Verde. Всички права запазени.</p>
-          <p className="font-mono tracking-[0.18em]">
-            Демо уебсайт, създаден от&nbsp;<span className="text-ink-muted">MaxStats IT Solutions</span>.
-          </p>
-        </div>
+        </Reveal>
       </div>
     </footer>
   )
